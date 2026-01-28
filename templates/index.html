@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Layout */
+    .top-section { display: flex; gap: 24px; margin-bottom: 24px; }
+    .panel-wrapper { flex: 1; min-width: 0; }
+
+    .panel { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e5e7eb; display: flex; flex-direction: column; overflow: hidden; }
+    /* Updated header to use flex-between for the button positioning */
+    .panel-header { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; background: #f9fafb; }
+    .panel-title { font-weight: 600; font-size: 0.95rem; margin: 0; color: #374151; }
+
+    /* Scroll Limits */
+    .scroll-area-short { padding: 0; overflow-y: auto; max-height: 450px; min-height: 150px; }
+    .scroll-area-long { padding: 0; overflow-y: auto; max-height: 950px; min-height: 200px; }
+
+    /* Tables */
+    .table-modern { width: 100%; border-collapse: collapse; }
+    .table-modern th { text-align: left; padding: 10px 16px; font-size: 0.75rem; text-transform: uppercase; color: #6b7280; font-weight: 600; background: white; position: sticky; top: 0; border-bottom: 1px solid #e5e7eb; z-index: 10; }
+    .table-modern td { padding: 10px 16px; font-size: 0.875rem; border-bottom: 1px solid #f3f4f6; color: #1f2937; vertical-align: middle; }
+    .table-modern tr:hover { background-color: #f9fafb; cursor: pointer; }
+    .row-active { background-color: #eff6ff !important; border-left: 3px solid var(--primary-color); }
+
+    /* Utilities */
+    .btn-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; padding: 0; transition: background 0.2s; border: none; background: transparent; color: #6b7280; }
+    .btn-icon:hover { background: #f3f4f6; color: var(--primary-color); }
+    .badge-soft { padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-gray { background: #f3f4f6; color: #4b5563; }
+</style>
+
+<div style="margin-bottom: 1.5rem;">
+    <h3 class="fw-bold mb-0">Dashboard</h3>
+    <p class="text-muted small">Overview of clients and active projects</p>
+</div>
+
+<div class="top-section">
+    <div class="panel panel-wrapper" style="flex: 0 0 350px;">
+        <div class="panel-header">
+            <h5 class="panel-title">Clients</h5>
+            <button class="btn-icon" onclick="openModal('client-modal')" title="Add Client"><i class="bi bi-plus-lg"></i></button>
+        </div>
+        <div class="scroll-area-short">
+            <table class="table-modern">
+                <tbody>
+                    {% for client in clients %}
+                    <tr class="client-row" onclick="loadProjects({{ client.id }}, this)">
+                        <td class="fw-medium">{{ client.company_name }}</td>
+                        <td class="text-end">
+                            <button class="btn-icon d-inline-flex" onclick="event.stopPropagation(); editClient({{ client.id }})"><i class="bi bi-pencil"></i></button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="panel panel-wrapper">
+        <div class="panel-header">
+            <div class="d-flex align-items-center">
+                <h5 class="panel-title">Projects</h5>
+                <span class="text-muted small ms-2" id="project-placeholder-text">Select a client</span>
+            </div>
+            <button id="add-project-btn" class="btn-icon d-none" onclick="openProjectModal(null, currentClientId)" title="Add Project">
+                <i class="bi bi-plus-lg"></i>
+            </button>
+        </div>
+        <div class="scroll-area-short" id="project-list-area">
+            <div class="text-center text-muted mt-5 p-4">
+                <i class="bi bi-arrow-left-circle display-4 opacity-25"></i>
+                <p class="mt-2">Select a client to view projects</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="panel d-none" id="task-panel">
+    <div class="panel-header">
+        <div class="d-flex align-items-center gap-3">
+            <h5 class="panel-title">Tasks</h5>
+            <span class="badge bg-primary rounded-pill" id="active-project-name">Project Name</span>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="#" id="gantt-link" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-bar-chart-steps"></i> Gantt</a>
+            <button class="btn btn-sm btn-outline-primary" onclick="openProjectEdit()"><i class="bi bi-pencil-square"></i> Edit Project</button>
+        </div>
+    </div>
+    <div class="scroll-area-long">
+        <div id="task-list-area"></div>
+    </div>
+</div>
+
+<div class="modal fade" id="client-modal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow"><div class="modal-body"><h5 class="fw-bold mb-3">Client</h5><form id="client-form"><input type="hidden" name="id" id="c_id"><input type="text" name="company_name" id="c_name" class="form-control mb-2" placeholder="Company Name" required><input type="text" name="contact_name" id="c_contact" class="form-control mb-2" placeholder="Contact Name"><input type="text" name="location" id="c_loc" class="form-control mb-2" placeholder="Location"><input type="text" name="phone_number" id="c_phone" class="form-control mb-2" placeholder="Phone"><input type="email" name="main_contact_email" id="c_email" class="form-control mb-3" placeholder="Email"><button type="submit" class="btn btn-primary w-100">Save</button></form></div></div></div></div>
+
+<div class="modal fade" id="project-modal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow"><div class="modal-body"><h5 class="fw-bold mb-3">Project</h5><form id="project-form"><input type="hidden" name="id" id="p_id"><input type="hidden" name="client_id" id="p_cid"><label class="small text-muted">Name</label><input type="text" name="name" id="p_name" class="form-control mb-2" required><label class="small text-muted">Start Date</label><input type="date" name="proposed_start_date" id="p_date" class="form-control mb-3"><button type="submit" class="btn btn-primary w-100">Save</button></form></div></div></div></div>
+
+<div class="modal fade" id="add-task-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-body">
+                <h5 class="fw-bold mb-3">New Task</h5>
+                <form id="add-task-form">
+                    <input type="hidden" name="project_id" id="t_pid">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <input type="text" name="task_name" class="form-control mb-2" placeholder="Task Name" required>
+                            <div class="row g-2 mb-2">
+                                <div class="col"><input type="date" name="start_date" class="form-control" required></div>
+                                <div class="col"><input type="number" name="duration_days" class="form-control" placeholder="Days" min="1" required></div>
+                            </div>
+                            <div class="mb-3"><div class="btn-group w-100" role="group"><input type="radio" class="btn-check" name="contractor_type" id="at_int" value="Internal" checked><label class="btn btn-outline-secondary" for="at_int">Internal</label><input type="radio" class="btn-check" name="contractor_type" id="at_cli" value="Client"><label class="btn btn-outline-secondary" for="at_cli">Client</label></div></div>
+                            <div class="mb-3"><label class="small text-muted d-block">Comments</label><textarea name="comments" class="form-control" rows="2" placeholder="Notes..."></textarea></div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="small text-muted d-block">Groups</label>
+                            <div class="d-flex flex-column gap-1" id="add-task-groups" style="max-height:150px; overflow-y:auto;"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="small text-muted d-block">Assign Users</label>
+                            <div class="d-flex flex-column gap-1" id="add-task-users" style="max-height:150px; overflow-y:auto;">
+                                <small class="text-muted">Select a group first</small>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 mt-3">Add Task</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="edit-task-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <ul class="nav nav-tabs border-0" id="taskTabs"><li class="nav-item"><button class="nav-link active fw-bold" data-bs-toggle="tab" data-bs-target="#tab-info">Details</button></li><li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-links">Links</button></li><li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-files">Files</button></li></ul>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light rounded-bottom">
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="tab-info">
+                        <form id="edit-task-form" class="bg-white p-3 rounded border">
+                            <input type="hidden" name="task_id" id="et_id">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-2"><label class="small fw-bold">Name</label><input type="text" name="task_name" id="et_name" class="form-control" required></div>
+                                    <div class="row g-2 mb-3"><div class="col"><label class="small fw-bold">Start</label><input type="date" name="start_date" id="et_date" class="form-control"></div><div class="col"><label class="small fw-bold">Duration</label><input type="number" name="duration_days" id="et_dur" class="form-control"></div></div>
+                                    <div class="mb-3"><div class="btn-group w-100" role="group"><input type="radio" class="btn-check" name="contractor_type" id="et_int" value="Internal"><label class="btn btn-outline-secondary" for="et_int">Internal</label><input type="radio" class="btn-check" name="contractor_type" id="et_cli" value="Client"><label class="btn btn-outline-secondary" for="et_cli">Client</label></div></div>
+                                    <div class="mb-3"><label class="small fw-bold">Comments</label><textarea name="comments" id="et_comments" class="form-control" rows="3" placeholder="Notes..."></textarea></div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="small fw-bold d-block">Groups</label>
+                                    <div class="d-flex flex-column gap-1" id="et_groups" style="max-height:200px; overflow-y:auto;"></div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="small fw-bold d-block">Assign Users</label>
+                                    <div class="d-flex flex-column gap-1" id="et_users" style="max-height:200px; overflow-y:auto;"></div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 mt-2">Update</button>
+                        </form>
+                    </div>
+                    <div class="tab-pane fade" id="tab-links"><div class="bg-white p-3 rounded border"><div class="list-group mb-3" id="link-list"></div><div class="input-group"><input type="text" id="new-link-url" class="form-control" placeholder="https://..."><button class="btn btn-dark" onclick="addLink()">Add</button></div></div></div>
+                    <div class="tab-pane fade" id="tab-files"><div class="bg-white p-3 rounded border"><div class="list-group mb-3" id="file-list"></div><div class="input-group"><input type="file" id="new-file-input" class="form-control"><button class="btn btn-dark" onclick="uploadFile()">Upload</button></div></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentTasks = [], currentProjects = {}, allGroups = [], allUsers = [];
+    let currentClientId = null, activeTaskId = null, activeProjectId = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetch('/api/groups').then(r=>r.json()).then(d=>allGroups=d);
+        fetch('/api/users').then(r=>r.json()).then(d=>allUsers=d);
+    });
+
+    function loadProjects(clientId, row) {
+        currentClientId = clientId;
+        document.querySelectorAll('.client-row').forEach(r => r.classList.remove('row-active'));
+        if(row) row.classList.add('row-active');
+        const container = document.getElementById('project-list-area');
+        container.innerHTML = '<div class="text-center text-muted mt-5"><div class="spinner-border text-primary"></div></div>';
+        document.getElementById('task-panel').classList.add('d-none');
+
+        // Show Project Button and Update Text
+        document.getElementById('add-project-btn').classList.remove('d-none');
+        const clientName = row.querySelector('td.fw-medium').innerText;
+        document.getElementById('project-placeholder-text').innerText = "- " + clientName;
+
+        fetch(`/api/projects/${clientId}`).then(r=>r.json()).then(data => {
+            currentTasks = []; currentProjects = {};
+            if(!data.length) { container.innerHTML = '<div class="text-center text-muted mt-5 p-4"><p>No projects found.</p><button class="btn btn-sm btn-outline-primary" onclick="openProjectModal(null, '+clientId+')">Create Project</button></div>'; return; }
+            let html = '<table class="table-modern"><thead><tr><th>Project</th><th>Start</th><th>Progress</th><th>Actions</th></tr></thead><tbody>';
+            data.forEach(p => {
+                currentProjects[p.id] = p; currentTasks.push(...p.tasks);
+                html += `<tr onclick="loadTasks(${p.id}, this)">
+                    <td class="fw-bold text-primary">${p.name}</td>
+                    <td>${p.proposed_start_date}</td>
+                    <td><div class="progress" style="height:6px; width:80px;"><div class="progress-bar" style="width:${p.completion_percent}%"></div></div></td>
+                    <td class="text-end">
+                        <div class="d-flex gap-1 justify-content-end">
+                            <button class="btn btn-sm btn-light border" onclick="event.stopPropagation(); openAddTaskModal(${p.id})" title="Add Task"><i class="bi bi-plus"></i></button>
+                            <button class="btn btn-sm btn-light border text-danger" onclick="event.stopPropagation(); deleteProject(${p.id})" title="Delete Project"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        });
+    }
+
+    function loadTasks(projId, row) {
+        activeProjectId = projId;
+        const p = currentProjects[projId];
+        document.getElementById('active-project-name').innerText = p.name;
+        document.getElementById('gantt-link').href = `/gantt/project/${projId}`;
+        document.getElementById('task-panel').classList.remove('d-none');
+        const tasks = currentTasks.filter(t => t.project_id === projId);
+        const container = document.getElementById('task-list-area');
+        if(!tasks.length) { container.innerHTML = '<div class="p-4 text-center text-muted">No tasks yet. <button class="btn btn-link" onclick="openAddTaskModal('+projId+')">Add one</button></div>'; return; }
+
+        let html = '<table class="table-modern"><thead><tr><th>Status</th><th>Task</th><th>Who</th><th>Dates</th><th>Type</th><th>Actions</th></tr></thead><tbody>';
+        tasks.forEach(t => {
+            const statusBadge = t.is_completed ? '<span class="badge-soft badge-green">Done</span>' : '<span class="badge-soft badge-gray">Active</span>';
+            const bgClass = t.is_completed ? 'bg-light text-muted' : '';
+            const completeIcon = t.is_completed ? 'bi-arrow-counterclockwise' : 'bi-check-lg';
+            const completeClass = t.is_completed ? 'text-secondary' : 'text-success';
+
+            html += `<tr class="${bgClass}">
+                <td>${statusBadge}</td>
+                <td class="fw-medium" onclick="editTask(${t.id})">${t.name}</td>
+                <td class="small text-truncate" style="max-width:100px;" title="${t.assignee_names}">${t.assignee_names || '-'}</td>
+                <td class="small">${t.start_date}</td>
+                <td class="small">${t.contractor_type}</td>
+                <td>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-light border ${completeClass}" onclick="toggleTask(${t.id})"><i class="bi ${completeIcon}"></i></button>
+                        <button class="btn btn-sm btn-light border" onclick="editTask(${t.id})"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-sm btn-light border text-danger" onclick="deleteTask(${t.id})"><i class="bi bi-trash"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    function editTask(tid) {
+        activeTaskId = tid;
+        let t = currentTasks.find(x => x.id === tid);
+
+        if (t) {
+            populateAndShowTaskModal(t);
+        } else {
+            fetch(`/api/task/${tid}`).then(r => r.json()).then(data => {
+                if(data.success === false) { alert("Task not found."); return; }
+                populateAndShowTaskModal(data);
+            });
+        }
+    }
+
+    function populateAndShowTaskModal(t) {
+        document.getElementById('et_id').value = t.id;
+        document.getElementById('et_name').value = t.name;
+        document.getElementById('et_date').value = t.start_date.split('T')[0];
+        document.getElementById('et_dur').value = t.duration_days;
+        document.getElementById('et_comments').value = t.comments || '';
+        if(t.contractor_type==='Internal') document.getElementById('et_int').checked=true; else document.getElementById('et_cli').checked=true;
+        renderGroupsAndUsers('et_groups', 'et_users', t.group_ids, t.user_ids || t.assignee_ids);
+        renderLinks(t.links);
+        renderFiles(t.files);
+        openModal('edit-task-modal');
+    }
+
+    function deleteProject(pid) {
+        window.openConfirmModal('Are you sure you want to delete this project and ALL its tasks?', () => {
+            fetch('/api/project/delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({project_id: pid})
+            })
+            .then(r => r.json())
+            .then(res => {
+                if(res.success) {
+                    loadProjects(currentClientId);
+                    showToast('Project deleted successfully');
+                } else {
+                    alert(res.message || 'Error deleting project');
+                }
+            });
+        });
+    }
+
+    function openModal(id) { new bootstrap.Modal(document.getElementById(id)).show(); }
+    function openProjectModal(id, cid) { document.getElementById('project-form').reset(); document.getElementById('p_id').value = ''; if(cid) document.getElementById('p_cid').value = cid; openModal('project-modal'); }
+    function openProjectEdit() { if(!activeProjectId) return; const p = currentProjects[activeProjectId]; document.getElementById('p_id').value = p.id; document.getElementById('p_cid').value = p.client_id; document.getElementById('p_name').value = p.name; document.getElementById('p_date').value = p.proposed_start_date; openModal('project-modal'); }
+    function openAddTaskModal(pid) { document.getElementById('add-task-form').reset(); document.getElementById('t_pid').value = pid; renderGroupsAndUsers('add-task-groups', 'add-task-users'); openModal('add-task-modal'); }
+
+    function renderGroupsAndUsers(groupId, userId, selectedGroups=[], selectedUsers=[]) {
+        const groupContainer = document.getElementById(groupId);
+        const userContainer = document.getElementById(userId);
+        groupContainer.innerHTML = '';
+        allGroups.forEach(g => {
+            const chk = selectedGroups.includes(g.id) ? 'checked' : '';
+            groupContainer.innerHTML += `<div class="form-check"><input class="form-check-input group-chk" type="checkbox" name="group_ids" value="${g.id}" ${chk} data-target-user-container="${userId}"><label class="form-check-label small">${g.name}</label></div>`;
+        });
+        const checkBoxes = groupContainer.querySelectorAll('.group-chk');
+        checkBoxes.forEach(box => { box.addEventListener('change', () => updateUsersList(userContainer, groupContainer, selectedUsers)); });
+        updateUsersList(userContainer, groupContainer, selectedUsers);
+    }
+
+    function updateUsersList(userContainer, groupContainer, preSelectedUsers=[]) {
+        const checkedGroupIds = Array.from(groupContainer.querySelectorAll('.group-chk:checked')).map(cb => parseInt(cb.value));
+        userContainer.innerHTML = '';
+        if (checkedGroupIds.length === 0) { userContainer.innerHTML = '<small class="text-muted fst-italic">Select a group to see users</small>'; return; }
+        const filteredUsers = allUsers.filter(u => u.group_ids.some(gid => checkedGroupIds.includes(gid)));
+        if (filteredUsers.length === 0) { userContainer.innerHTML = '<small class="text-muted">No users in selected groups</small>'; return; }
+        filteredUsers.forEach(u => {
+            const isChecked = preSelectedUsers.includes(u.id) ? 'checked' : '';
+            userContainer.innerHTML += `<div class="form-check"><input class="form-check-input" type="checkbox" name="user_ids" value="${u.id}" ${isChecked}><label class="form-check-label small">${u.username}</label></div>`;
+        });
+    }
+
+    function handleForm(e, url, reloadType='data') {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const data = Object.fromEntries(fd.entries());
+        data.group_ids = fd.getAll('group_ids');
+        data.user_ids = fd.getAll('user_ids');
+        fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) })
+        .then(r=>r.json()).then(res => {
+            if(res.success) {
+                bootstrap.Modal.getInstance(e.target.closest('.modal')).hide();
+                showToast('Success');
+                if(reloadType==='data') reloadActiveData(); else location.reload();
+            } else { alert(res.message || 'Error'); }
+        });
+    }
+
+    function reloadActiveData() { if(!currentClientId) return; fetch(`/api/projects/${currentClientId}`).then(r=>r.json()).then(data => { currentTasks = []; currentProjects = {}; data.forEach(p => { currentProjects[p.id] = p; currentTasks.push(...p.tasks); }); if(activeProjectId) loadTasks(activeProjectId); }); }
+
+    if(document.getElementById('add-user-form')) {
+        document.getElementById('add-user-form').onsubmit = (e) => handleForm(e, '/api/user/add', 'page');
+        document.getElementById('schedule-form').onsubmit = (e) => handleForm(e, '/api/admin/schedule', 'none');
+        document.getElementById('restore-form').onsubmit = (e) => { e.preventDefault(); const fd = new FormData(e.target); fetch('/api/admin/restore', {method:'POST', body:fd}).then(r=>r.json()).then(res=>{ if(res.success) location.reload(); else alert('Restore failed'); }); };
+    }
+    document.getElementById('client-form').onsubmit = (e) => handleForm(e, '/api/client/save', 'page');
+    document.getElementById('project-form').onsubmit = (e) => handleForm(e, '/api/project/save', 'data');
+    document.getElementById('add-task-form').onsubmit = (e) => handleForm(e, '/api/task/add', 'data');
+    document.getElementById('edit-task-form').onsubmit = (e) => handleForm(e, '/api/task/update', 'data');
+
+    function deleteUser(uid, btn) { window.openConfirmModal('Delete this user?', () => { fetch('/api/user/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id:uid}) }).then(r=>r.json()).then(res=>{ if(res.success) btn.closest('.list-group-item').remove(); }); }); }
+    function scrubDatabase() { window.openConfirmModal('DANGER: Scrub Data?', () => { fetch('/api/admin/scrub', {method:'POST'}).then(r=>r.json()).then(res=>{ if(res.success) location.reload(); }); }); }
+    function toggleTask(id) { fetch('/api/task/complete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({task_id:id})}).then(()=>reloadActiveData()); }
+    function deleteTask(id) { window.openConfirmModal('Are you sure you want to delete?', () => { fetch('/api/task/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({task_id:id})}).then(()=>reloadActiveData()); }); }
+    function editClient(id) { openModal('client-modal'); fetch(`/api/client/${id}`).then(r=>r.json()).then(data=>{ document.getElementById('c_id').value = data.id; document.getElementById('c_name').value = data.company_name; document.getElementById('c_contact').value = data.contact_name; document.getElementById('c_loc').value = data.location; document.getElementById('c_phone').value = data.phone_number; document.getElementById('c_email').value = data.main_contact_email; }); }
+    function renderLinks(links=[]) { const div = document.getElementById('link-list'); div.innerHTML = ''; if(links) links.forEach(l => { div.innerHTML += `<div class="list-group-item d-flex justify-content-between p-2"><a href="${l.url}" target="_blank" class="small text-truncate" style="max-width:300px;">${l.url}</a><button class="btn btn-sm text-danger p-0" onclick="delItem('/api/task/link/delete', {link_id:${l.id}})"><i class="bi bi-x"></i></button></div>`; }); }
+    function renderFiles(files=[]) { const div = document.getElementById('file-list'); div.innerHTML = ''; if(files) files.forEach(f => { div.innerHTML += `<div class="list-group-item d-flex justify-content-between p-2"><a href="/task/file/download/${f.id}" class="small">${f.filename}</a><button class="btn btn-sm text-danger p-0" onclick="delItem('/api/task/file/delete', {file_id:${f.id}})"><i class="bi bi-x"></i></button></div>`; }); }
+    function addLink() { const u=document.getElementById('new-link-url').value; if(u) fetch('/api/task/link/add', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({task_id:activeTaskId, url:u})}).then(r=>r.json()).then(res=>{if(res.success){document.getElementById('new-link-url').value=''; reloadActiveData(); bootstrap.Modal.getInstance(document.getElementById('edit-task-modal')).hide();}}); }
+    function uploadFile() { const f=document.getElementById('new-file-input').files[0]; if(f){ const fd=new FormData(); fd.append('file',f); fd.append('task_id',activeTaskId); fetch('/api/task/file/upload', {method:'POST', body:fd}).then(r=>r.json()).then(res=>{if(res.success){document.getElementById('new-file-input').value=''; reloadActiveData(); bootstrap.Modal.getInstance(document.getElementById('edit-task-modal')).hide();}}); }}
+    function delItem(url, body) { window.openConfirmModal('Remove item?', () => { fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(r=>r.json()).then(res=>{if(res.success){ reloadActiveData(); bootstrap.Modal.getInstance(document.getElementById('edit-task-modal')).hide(); }}); }); }
+</script>
+{% endblock %}

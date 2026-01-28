@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+    <div class="panel">
+        <h2 style="margin-top:0;">Backup Scheduler</h2>
+
+        <div style="background: #f0f9ff; padding: 15px; border-radius: 4px; border: 1px solid #bae6fd; margin-bottom: 20px;">
+            <strong>Current Status:</strong>
+            {% if current_schedule == "None" %}
+                <span style="color: #666;">No automated backups scheduled.</span>
+            {% else %}
+                <span style="color: #0284c7; font-weight:bold;">Active</span> ({{ current_schedule }})
+            {% endif %}
+        </div>
+
+        <form method="POST">
+            <label style="display:block; font-weight:bold; margin-bottom:5px;">Set Backup Interval</label>
+            <div style="display:flex; gap:10px; margin-bottom:15px;">
+                <input type="number" name="interval" value="1" min="1" required style="flex:1;">
+                <select name="unit" style="flex:1;">
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                    <option value="weeks">Weeks</option>
+                    <option value="minutes">Minutes (Test)</option>
+                </select>
+            </div>
+
+            <button type="submit" class="button primary" style="width:100%;">Update Schedule</button>
+        </form>
+
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+
+        <p style="font-size:0.9rem; color:var(--secondary);">
+            Note: Backups are saved to the <code>/archive</code> folder in your project directory.
+            The scheduler runs only while the application is active.
+        </p>
+
+        <a href="{{ url_for('index') }}" style="text-decoration:none; color:var(--primary); font-size:0.9rem;">&larr; Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

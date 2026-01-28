@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="panel" style="max-width: 600px; margin: 0 auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+        <h2>Backup Schedule</h2>
+        <a href="{{ url_for('index') }}" class="button secondary">Back to Dashboard</a>
+    </div>
+
+    <div style="padding: 20px; background: #f8fafc; border-radius: 8px; margin-bottom: 20px;">
+        <h4 style="margin-top: 0;">Current Status</h4>
+        <p><strong>Frequency:</strong> {{ current_schedule }}</p>
+        <p class="text-secondary" style="font-size: 0.9rem;">Backups are saved to the <code>/archive</code> folder in your application directory.</p>
+    </div>
+
+    <form method="POST">
+        {% set input_style = "width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" %}
+        
+        <label style="font-weight:bold; display:block;">Interval Value</label>
+        <input type="number" name="interval" value="24" min="1" required style="{{ input_style }}">
+
+        <label style="font-weight:bold; display:block;">Unit</label>
+        <select name="unit" style="{{ input_style }}">
+            <option value="hours" selected>Hours</option>
+            <option value="minutes">Minutes</option>
+            <option value="days">Days</option>
+        </select>
+
+        <button type="submit" class="button primary" style="width: 100%;">Set Schedule</button>
+    </form>
+</div>
+{% endblock %}

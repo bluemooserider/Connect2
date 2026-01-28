@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h2>Project: {{ project.name }}</h2>
+    <p><strong>Client:</strong> {{ project.client.name }}</p>
+    <p><strong>Status:</strong> {{ 'Completed' if project.is_completed else 'In Progress' }}</p>
+    <p><strong>Proposed Start:</strong> {{ project.proposed_start_date.strftime('%Y-%m-%d') if project.proposed_start_date else 'N/A' }}</p>
+    <p><strong>Types:</strong>
+        {% for pt in project.project_types %}
+            <span class="status-active">{{ pt.name }}</span>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+    </p>
+
+    <div class="top-actions">
+        <a href="{{ url_for('project_new_edit', project_id=project.id) }}" class="button edit">Edit Project Details</a>
+        {% if not project.is_completed %}
+            <form action="{{ url_for('project_complete', project_id=project.id) }}" method="POST" style="display: inline;">
+                <button type="submit" class="button complete-project">Mark as Complete</button>
+            </form>
+        {% endif %}
+    </div>
+
+    <hr>
+
+    <h3>Tasks ({{ project.tasks | length }})</h3>
+    <table class="table-compact tasks-table">
+        <thead>
+            <tr>
+                <th>TASK NAME</th>
+                <th>START DATE</th>
+                <th>END DATE</th>
+                <th>DURATION (Days)</th>
+                <th>CONTRACTOR</th>
+                <th>STATUS</th>
+                <th>ACTIONS</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in tasks_with_end_date %}
+            {% set task = item.task %}
+            <tr class="{{ 'task-completed' if task.is_completed else '' }}">
+                <td>{{ task.name }}</td>
+                <td>{{ task.start_date.strftime('%Y-%m-%d') }}</td>
+                <td>{{ item.end_date }}</td>
+                <td>{{ task.duration_days }}</td>
+                <td>{{ task.contractor_type }}</td>
+                <td>{{ 'Completed' if task.is_completed else 'Pending' }}</td>
+                <td>
+                    <form action="{{ url_for('task_complete', task_id=task.id) }}" method="POST" style="display: inline;">
+                        <button type="submit" class="action-link" style="border: none; background: none; color: #1e88e5; cursor: pointer;">
+                            {{ 'Unmark' if task.is_completed else 'Complete' }}
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h4>Add New Task</h4>
+    <form action="{{ url_for('task_new', project_id=project.id) }}" method="POST" style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
+        <div style="flex-grow: 1; min-width: 200px;">
+            <label for="task_name">Task Name</label>
+            <input type="text" id="task_name" name="task_name" required style="margin-bottom: 0;">
+        </div>
+        <div style="width: 150px;">
+            <label for="start_date">Start Date</label>
+            <input type="date" id="start_date" name="start_date" required style="margin-bottom: 0;">
+        </div>
+        <div style="width: 100px;">
+            <label for="duration_days">Duration (Days)</label>
+            <input type="number" id="duration_days" name="duration_days" required min="1" style="margin-bottom: 0;">
+        </div>
+
+
+
+        <button type="submit" class="button primary" style="flex-shrink: 0; margin: 0;">Add Task</button>
+    </form>
+{% endblock %}

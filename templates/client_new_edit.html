@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel" style="max-width: 600px; margin: 0 auto;">
+    <h2>{{ 'Edit Company' if client else 'New Company' }}</h2>
+    <form method="POST">
+        {% set input_style = "width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" %}
+
+        <label style="display:block; margin-bottom:5px; font-weight:bold;">Company Name</label>
+        <input type="text" name="company_name" value="{{ client.company_name if client else '' }}" required style="{{ input_style }}">
+
+        <label style="display:block; margin-bottom:5px; font-weight:bold;">Site Location</label>
+        <input type="text" name="location" value="{{ client.location if client else '' }}" style="{{ input_style }}">
+
+        <label style="display:block; margin-bottom:5px; font-weight:bold;">Main Contact Name</label>
+        <input type="text" name="contact_name" value="{{ client.contact_name if client else '' }}" style="{{ input_style }}">
+
+        <label style="display:block; margin-bottom:5px; font-weight:bold;">Phone</label>
+        <input type="text" name="phone_number" value="{{ client.phone_number if client else '' }}" style="{{ input_style }}">
+
+        <label style="display:block; margin-bottom:5px; font-weight:bold;">Email</label>
+        <input type="email" name="main_contact_email" value="{{ client.main_contact_email if client else '' }}" style="{{ input_style }}">
+
+        <div style="margin-top:1.5rem; display:flex; gap:1rem;">
+            <button type="submit" class="button primary">Save Details</button>
+            <a href="{{ url_for('index') }}" class="button secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

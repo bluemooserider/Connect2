@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
+    <div class="card border-0 shadow-lg" style="width: 400px; border-radius: 12px;">
+        <div class="card-body p-5">
+            <div class="text-center mb-4">
+                <i class="bi bi-diagram-3-fill text-primary" style="font-size: 3rem;"></i>
+                <h3 class="fw-bold mt-2">Welcome Back</h3>
+            </div>
+            <form method="POST">
+                <div class="form-floating mb-3">
+                    <input type="text" class="form-control rounded-3" id="username" name="username" placeholder="Username" required>
+                    <label for="username">Username</label>
+                </div>
+                <div class="form-floating mb-4">
+                    <input type="password" class="form-control rounded-3" id="password" name="password" placeholder="Password" required>
+                    <label for="password">Password</label>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-2 rounded-3 fw-bold">Sign In</button>
+            </form>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-danger mt-3 py-2 text-center small rounded-3">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+</div>
+{% endblock %}

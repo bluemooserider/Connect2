@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>📅 Project Management Dashboard</h2>
+
+<div class="dynamic-container">
+
+    <div class="panel client-panel">
+        <h3 class="panel-header">Clients ({{ clients | length }})</h3>
+
+        <table class="table-compact client-table">
+            <thead>
+                <tr>
+                    <th>CLIENT NAME</th>
+                    <th>PROJECTS & ACTIONS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for client in clients %}
+                <tr class="client-item" data-client-id="{{ client.id }}">
+                    <td class="client-name-cell">
+                        <a href="#" onclick="fetchProjects({{ client.id }}, this); return false;">
+                            {{ client.name }}
+                        </a>
+                    </td>
+                    <td>
+                        </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+
+    <div class="panel project-panel">
+        <h3 class="panel-header">Projects</h3>
+
+        <div id="project-list-container">
+            <p id="project-placeholder">Select a client on the left to view their projects.</p>
+        </div>
+    </div>
+
+</div>
+
+<div class="panel task-panel full-width">
+    <h3 class="panel-header">Tasks</h3>
+    <p id="task-placeholder">Select a project above to view all its tasks (active and completed).</p>
+    <div id="task-list-container">
+        </div>
+</div>
+
+<script>
+    let currentTasks = [];
+
+    function fetchProjects(clientId, element) {
+        // Highlight the selected client
+        document.querySelectorAll('.client-name-cell a').forEach(a => a.classList.remove('active'));
+        element.classList.add('active');
+
+        // Reset tasks area
+        document.getElementById('task-list-container').innerHTML = '';
+        document.getElementById('task-placeholder').style.display = 'block';
+
+        const projectContainer = document.getElementById('project-list-container');
+        projectContainer.innerHTML = 'Loading projects...';
+
+        // Fetch data from the Flask API endpoint
+        fetch(`/api/projects/${clientId}`)
+            .then(response => response.json())
+            .then(data => {
+                currentTasks = []; // Reset tasks for the new client
+
+                if (data.length === 0) {
+                    projectContainer.innerHTML = '<p class="text-secondary">No projects found for this client.</p>';
+                    return;
+                }
+
+                let tableHtml = `<h3 class="sub-header">Projects (${data.length})</h3>`;
+                tableHtml += `<table class="table-compact project-table">`;
+                tableHtml += `<thead><tr><th>PROJECT NAME</th><th>TYPE</th><th>STATUS/DATES</th></tr></thead><tbody>`;
+
+                data.forEach(project => {
+                    const statusText = project.is_completed ? 'Completed' : 'In Progress';
+
+                    tableHtml += `<tr class="project-list-item" data-project-id="${project.id}">`;
+
+                    // Column 1: Project Name (Clickable)
+                    tableHtml += `<td><a href="#" onclick="displayTasks(${project.id}); return false;" class="project-link">
+                                    ${project.name}
+                                  </a></td>`;
+
+                    // Column 2: Type
+                    tableHtml += `<td>${project.types}</td>`;
+
+                    // Column 3: Status/Dates
+                    tableHtml += `<td class="${project.is_completed ? 'status-completed' : 'status-active'}">
+                                    ${statusText}
+                                  </td>`;
+                    tableHtml += `</tr>`;
+
+                    // Store all tasks associated with this client's projects
+                    currentTasks.push(...project.tasks.map(task => ({
+                        ...task,
+                        projectName: project.name
+                    })));
+                });
+                tableHtml += '</tbody></table>';
+
+                document.getElementById('project-placeholder').style.display = 'none';
+                projectContainer.innerHTML = tableHtml;
+
+                // Automatically display tasks for the first project
+                if (data.length > 0) {
+                    displayTasks(data[0].id);
+                }
+
+            })
+            .catch(error => {
+                console.error('Error fetching projects:', error);
+                projectContainer.innerHTML = '<p class="error">Error loading projects.</p>';
+            });
+    }
+
+    function displayTasks(projectId) {
+        const taskContainer = document.getElementById('task-list-container');
+        const tasksPlaceholder = document.getElementById('task-placeholder');
+
+        // Filter tasks based on the selected project ID
+        const filteredTasks = currentTasks.filter(task => task.project_id === projectId);
+
+        // Highlight the selected project link
+        document.querySelectorAll('.project-link').forEach(a => a.classList.remove('active'));
+        document.querySelector(`.project-list-item[data-project-id="${projectId}"] .project-link`).classList.add('active');
+
+        if (filteredTasks.length === 0) {
+            taskContainer.innerHTML = '<p class="text-secondary">No tasks found for this project.</p>';
+            tasksPlaceholder.style.display = 'none';
+            return;
+        }
+
+        let tableHtml = `<h3 class="sub-header">Tasks (${filteredTasks.length})</h3>`;
+        tableHtml += '<table class="table-compact tasks-table"><thead><tr><th>TASK NAME</th><th>START DATE</th><th>END DATE</th><th>DURATION</th><th>CONTRACTOR/STATUS</th></tr></thead><tbody>';
+
+        filteredTasks.forEach(task => {
+            const statusClass = task.is_completed ? 'task-completed' : 'task-active';
+            const contractor = task.is_internal ? 'Internal' : 'Subcontractor';
+
+            tableHtml += `<tr class="${statusClass}">`;
+            tableHtml += `<td>${task.name}</td>`;
+            tableHtml += `<td>${task.start_date}</td>`;
+            tableHtml += `<td>${task.end_date}</td>`;
+            tableHtml += `<td>${task.duration_days} days</td>`;
+            tableHtml += `<td>${contractor}, ${task.is_completed ? 'Done' : 'Pending'}</td>`;
+            tableHtml += `</tr>`;
+        });
+
+        tableHtml += '</tbody></table>';
+
+        tasksPlaceholder.style.display = 'none';
+        taskContainer.innerHTML = tableHtml;
+    }
+</script>
+{% endblock %}
