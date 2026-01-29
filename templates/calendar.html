@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .fc-event { cursor: pointer; border: none; }
+    .fc-daygrid-event-dot { border: calc(var(--fc-daygrid-event-dot-width)/2) solid var(--fc-event-border-color); }
+    .filter-bar { background: white; padding: 15px; border-radius: 12px; border: 1px solid #e5e7eb; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .legend-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+</style>
+
+<div class="filter-bar d-flex flex-wrap gap-3 align-items-center justify-content-between">
+    <div class="d-flex gap-3 align-items-center">
+        <h4 class="mb-0 fw-bold text-secondary"><i class="bi bi-calendar3 me-2"></i>Schedule</h4>
+        <div class="vr mx-2"></div>
+
+        <div>
+            <label class="small fw-bold text-muted d-block mb-1">Group / Department</label>
+            <select id="group-filter" class="form-select form-select-sm" style="min-width: 180px;">
+                <option value="">All Groups (Overall Op)</option>
+                {% for group in all_groups %}
+                <option value="{{ group.id }}">{{ group.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label class="small fw-bold text-muted d-block mb-1">Individual Schedule</label>
+            <select id="user-filter" class="form-select form-select-sm" style="min-width: 180px;">
+                <option value="">All Users</option>
+                {% for user in users %}
+                <option value="{{ user.id }}" data-group-ids='{{ user.groups|map(attribute="id")|list|tojson }}'>
+                    {{ user.display_name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button class="btn btn-sm btn-outline-secondary align-self-end" onclick="resetFilters()">Reset</button>
+    </div>
+
+    <div class="d-flex gap-3 small text-muted">
+        <div class="d-flex align-items-center"><span class="legend-dot" style="background:#ef4444;"></span> High Priority</div>
+        <div class="d-flex align-items-center"><span class="legend-dot" style="background:#f59e0b;"></span> Medium</div>
+        <div class="d-flex align-items-center"><span class="legend-dot" style="background:#10b981;"></span> Low</div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4">
+    <div class="card-body p-4">
+        <div id="calendar" style="min-height: 750px;"></div>
+    </div>
+</div>
+
+<div class="modal fade" id="event-modal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold" id="evt-title">Task Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-0">
+                <h6 class="text-primary fw-bold mb-3" id="evt-project"></h6>
+                <div class="d-flex gap-2 mb-3">
+                    <span class="badge" id="evt-prio"></span>
+                    <span class="badge bg-light text-dark border" id="evt-dates"></span>
+                </div>
+                <p class="text-muted small mb-2"><i class="bi bi-people me-2"></i> <strong>Assigned to:</strong> <span id="evt-assignees"></span></p>
+                <div class="d-grid mt-4">
+                    <a href="/" class="btn btn-outline-primary btn-sm">Go to Dashboard to Edit</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+<script>
+    let calendar;
+    const groupSelect = document.getElementById('group-filter');
+    const userSelect = document.getElementById('user-filter');
+    const allUserOptions = Array.from(userSelect.options); // Store original options
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const calendarEl = document.getElementById('calendar');
+
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,listMonth'
+            },
+            themeSystem: 'bootstrap5',
+            height: 'auto',
+            navLinks: true,
+            editable: false,
+            events: {
+                url: '/api/calendar_events',
+                extraParams: function() {
+                    return {
+                        group_id: groupSelect.value,
+                        user_id: userSelect.value
+                    };
+                }
+            },
+            eventClick: function(info) {
+                showEventDetails(info.event);
+            }
+        });
+
+        calendar.render();
+
+        // Event Listeners for Filters
+        groupSelect.addEventListener('change', () => {
+            filterUserDropdown();
+            calendar.refetchEvents();
+        });
+        userSelect.addEventListener('change', () => calendar.refetchEvents());
+    });
+
+    function filterUserDropdown() {
+        const selectedGroupId = parseInt(groupSelect.value);
+
+        // Reset User Selection
+        userSelect.value = "";
+        userSelect.innerHTML = ""; // Clear current options
+
+        if (!selectedGroupId) {
+            // Restore all users if no group selected
+            allUserOptions.forEach(opt => userSelect.appendChild(opt));
+        } else {
+            // Add "All Users" placeholder
+            userSelect.appendChild(allUserOptions[0]);
+
+            // Filter users based on data-group-ids attribute
+            allUserOptions.forEach(opt => {
+                if (opt.value) { // Skip placeholder
+                    const userGroups = JSON.parse(opt.getAttribute('data-group-ids') || "[]");
+                    if (userGroups.includes(selectedGroupId)) {
+                        userSelect.appendChild(opt);
+                    }
+                }
+            });
+        }
+    }
+
+    function resetFilters() {
+        groupSelect.value = "";
+        filterUserDropdown(); // Resets user list
+        calendar.refetchEvents();
+    }
+
+    function showEventDetails(event) {
+        document.getElementById('evt-title').innerText = event.title;
+        document.getElementById('evt-project').innerText = event.extendedProps.project;
+        document.getElementById('evt-assignees').innerText = event.extendedProps.assignees || 'Unassigned';
+
+        const prio = event.extendedProps.priority;
+        const badge = document.getElementById('evt-prio');
+        badge.innerText = prio + " Priority";
+        badge.className = 'badge ' + (prio === 'High' ? 'bg-danger' : prio === 'Medium' ? 'bg-warning text-dark' : 'bg-success');
+
+        const start = event.start.toLocaleDateString();
+        const end = event.end ? event.end.toLocaleDateString() : start;
+        document.getElementById('evt-dates').innerText = `${start} - ${end}`;
+
+        new bootstrap.Modal(document.getElementById('event-modal')).show();
+    }
+</script>
+{% endblock %}

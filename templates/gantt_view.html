@@ -1,52 +1,72 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="panel">
+<div class="panel p-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="mb-0">{{ title }}</h3>
         <div>
-            <a href="{{ url_for('export_gantt_csv', source_type=source_type, source_id=source_id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-filetype-csv"></i> Export CSV</a>
-            <a href="{{ url_for('export_gantt_xml', source_type=source_type, source_id=source_id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-filetype-xml"></i> Export XML</a>
+            <h3 class="fw-bold mb-0">Project Timeline</h3>
+            <p class="text-muted small">Project: {{ project.name }}</p>
+        </div>
+        <div>
+            <a href="/" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to Dashboard</a>
         </div>
     </div>
-    <div id="chart_div" style="width: 100%; min-height: 500px;"></div>
-    <p class="text-center text-muted small mt-2"><i class="bi bi-info-circle"></i> Click on a task bar to edit details.</p>
+
+    <div id="chart_div" style="width: 100%; min-height: 600px;"></div>
 </div>
 
-<div class="modal fade" id="edit-task-modal" tabindex="-1">
+<div class="modal fade" id="task-modal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow">
-            <div class="modal-header border-0 pb-0">
-                <ul class="nav nav-tabs border-0" id="taskTabs"><li class="nav-item"><button class="nav-link active fw-bold" data-bs-toggle="tab" data-bs-target="#tab-info">Details</button></li><li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-links">Links</button></li><li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-files">Files</button></li></ul>
+            <div class="modal-header border-0 bg-light">
+                <h6 class="modal-title fw-bold">Edit Task</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body bg-light rounded-bottom">
-                <div class="tab-content">
-                    <div class="tab-pane fade show active" id="tab-info">
-                        <form id="edit-task-form" class="bg-white p-3 rounded border">
-                            <input type="hidden" name="task_id" id="et_id">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-2"><label class="small fw-bold">Name</label><input type="text" name="task_name" id="et_name" class="form-control" required></div>
-                                    <div class="row g-2 mb-3"><div class="col"><label class="small fw-bold">Start</label><input type="date" name="start_date" id="et_date" class="form-control"></div><div class="col"><label class="small fw-bold">Duration</label><input type="number" name="duration_days" id="et_dur" class="form-control"></div></div>
-                                    <div class="mb-3"><div class="btn-group w-100" role="group"><input type="radio" class="btn-check" name="contractor_type" id="et_int" value="Internal"><label class="btn btn-outline-secondary" for="et_int">Internal</label><input type="radio" class="btn-check" name="contractor_type" id="et_cli" value="Client"><label class="btn btn-outline-secondary" for="et_cli">Client</label></div></div>
-                                    <div class="mb-3"><label class="small fw-bold">Comments</label><textarea name="comments" id="et_comments" class="form-control" rows="3" placeholder="Notes..."></textarea></div>
+            <div class="modal-body">
+                <form id="task-form">
+                    <input type="hidden" name="task_id" id="t_id">
+                    <input type="hidden" name="project_id" id="t_pid" value="{{ project.id }}">
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="small fw-bold">Task Name</label>
+                            <input type="text" name="task_name" id="t_name" class="form-control mb-2" required>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col">
+                                    <label class="small fw-bold">Priority</label>
+                                    <select name="priority" id="t_priority" class="form-select">
+                                        <option value="Low">Low</option>
+                                        <option value="Medium">Medium</option>
+                                        <option value="High">High</option>
+                                    </select>
                                 </div>
-                                <div class="col-md-3">
-                                    <label class="small fw-bold d-block">Groups</label>
-                                    <div class="d-flex flex-column gap-1" id="et_groups" style="max-height:200px; overflow-y:auto;"></div>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="small fw-bold d-block">Assign Users</label>
-                                    <div class="d-flex flex-column gap-1" id="et_users" style="max-height:200px; overflow-y:auto;"></div>
+                                <div class="col">
+                                    <label class="small fw-bold">Predecessor</label>
+                                    <select name="dependency_id" id="t_dependency" class="form-select">
+                                        <option value="">None</option>
+                                    </select>
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-primary w-100 mt-2">Update</button>
-                        </form>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col"><label class="small fw-bold">Start</label><input type="date" name="start_date" id="t_date" class="form-control" required></div>
+                                <div class="col"><label class="small fw-bold">Duration</label><input type="number" name="duration_days" id="t_dur" class="form-control"></div>
+                            </div>
+                            <textarea name="comments" id="t_comments" class="form-control" rows="3" placeholder="Notes..."></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="small fw-bold">1. Select Groups</label>
+                            <div id="modal_groups" class="border rounded p-2 mb-3" style="max-height:120px; overflow-y:auto;"></div>
+                            <label class="small fw-bold">2. Assign Users</label>
+                            <div id="modal_users" class="border rounded p-2" style="max-height:150px; overflow-y:auto;"></div>
+                        </div>
                     </div>
-                    <div class="tab-pane fade" id="tab-links"><div class="bg-white p-3 rounded border"><div class="list-group mb-3" id="link-list"></div><div class="input-group"><input type="text" id="new-link-url" class="form-control" placeholder="https://..."><button class="btn btn-dark" onclick="addLink()">Add</button></div></div></div>
-                    <div class="tab-pane fade" id="tab-files"><div class="bg-white p-3 rounded border"><div class="list-group mb-3" id="file-list"></div><div class="input-group"><input type="file" id="new-file-input" class="form-control"><button class="btn btn-dark" onclick="uploadFile()">Upload</button></div></div></div>
-                </div>
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <button type="button" class="btn btn-light text-danger" onclick="deleteTask()">Delete</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -55,23 +75,31 @@
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <script>
     let allGroups = [], allUsers = [];
-    let activeTaskId = null;
+    let currentTasks = []; // To populate predecessor dropdown
+    const projectId = {{ project.id }};
 
     document.addEventListener('DOMContentLoaded', () => {
-        // Fetch metadata needed for edit modal
+        // Fetch metadata for modal
         fetch('/api/groups').then(r=>r.json()).then(d=>allGroups=d);
         fetch('/api/users').then(r=>r.json()).then(d=>allUsers=d);
+
+        // Fetch tasks for dropdown population
+        fetch(`/api/projects/{{ project.client_id }}`).then(r=>r.json()).then(data => {
+            const p = data.find(x => x.id === projectId);
+            if(p) currentTasks = p.tasks;
+        });
     });
 
     google.charts.load('current', {'packages':['gantt']});
     google.charts.setOnLoadCallback(drawChart);
 
     function drawChart() {
-        fetch('{{ url_for("api_gantt_data", source_type=source_type, source_id=source_id) }}')
+        fetch('{{ url_for("api_gantt_data", source_type="project", source_id=project.id) }}')
         .then(response => response.json())
         .then(data => {
+            const container = document.getElementById('chart_div');
             if (!data.tasks || data.tasks.length === 0) {
-                document.getElementById('chart_div').innerHTML = '<div class="alert alert-info text-center">No tasks found for this project.</div>';
+                container.innerHTML = '<div class="alert alert-info text-center mt-5">No tasks found. Add tasks from the dashboard to see the timeline.</div>';
                 return;
             }
 
@@ -98,20 +126,20 @@
                 gantt: {
                     trackHeight: 30,
                     palette: [
-                        { "color": "#4f46e5", "dark": "#3730a3", "light": "#c7d2fe" }, // Internal
-                        { "color": "#f59e0b", "dark": "#b45309", "light": "#fcd34d" }  // Client/Other
+                        { "color": "#4f46e5", "dark": "#3730a3", "light": "#c7d2fe" },
+                        { "color": "#f59e0b", "dark": "#b45309", "light": "#fcd34d" }
                     ]
                 }
             };
 
-            var chart = new google.visualization.Gantt(document.getElementById('chart_div'));
+            var chart = new google.visualization.Gantt(container);
 
-            // --- EVENT LISTENER FOR SELECTION ---
+            // INTERACTIVITY: Click event
             google.visualization.events.addListener(chart, 'select', function() {
                 var selection = chart.getSelection();
                 if (selection.length > 0) {
                     var row = selection[0].row;
-                    var taskId = dt.getValue(row, 0); // Get Task ID (Col 0)
+                    var taskId = dt.getValue(row, 0); // Col 0 is Task ID
                     openEditTaskModal(taskId);
                 }
             });
@@ -120,75 +148,79 @@
         });
     }
 
-    // --- EDIT TASK LOGIC (Similar to index.html) ---
+    // --- MODAL LOGIC (Copied & Adapted from Index) ---
     function openEditTaskModal(tid) {
-        activeTaskId = tid;
+        // Fetch full task details because Gantt data is simplified
         fetch(`/api/task/${tid}`).then(r => r.json()).then(t => {
-            if(t.success === false) { alert("Task not found."); return; }
+            if(t.success === false) return;
 
-            document.getElementById('et_id').value = t.id;
-            document.getElementById('et_name').value = t.name;
-            document.getElementById('et_date').value = t.start_date.split('T')[0];
-            document.getElementById('et_dur').value = t.duration_days;
-            document.getElementById('et_comments').value = t.comments || '';
+            document.getElementById('t_id').value = t.id;
+            document.getElementById('t_name').value = t.name;
+            document.getElementById('t_priority').value = t.priority;
+            document.getElementById('t_date').value = t.start_date.split('T')[0];
+            document.getElementById('t_dur').value = t.duration_days;
+            document.getElementById('t_comments').value = t.comments || '';
 
-            if(t.contractor_type==='Internal') document.getElementById('et_int').checked=true;
-            else document.getElementById('et_cli').checked=true;
+            // Populate Predecessors (exclude self)
+            const drop = document.getElementById('t_dependency');
+            drop.innerHTML = '<option value="">None</option>';
+            currentTasks.forEach(tk => {
+                if(tk.id != t.id) drop.innerHTML += `<option value="${tk.id}">${tk.name}</option>`;
+            });
+            document.getElementById('t_dependency').value = t.dependency_id || '';
 
-            renderGroupsAndUsers('et_groups', 'et_users', t.group_ids, t.user_ids || t.assignee_ids);
-            renderLinks(t.links);
-            renderFiles(t.files);
-
-            new bootstrap.Modal(document.getElementById('edit-task-modal')).show();
+            renderUserGroupPickers(t.group_ids, t.assignee_ids);
+            new bootstrap.Modal(document.getElementById('task-modal')).show();
         });
     }
 
-    // --- REUSED HELPER FUNCTIONS ---
-    function renderGroupsAndUsers(groupId, userId, selectedGroups=[], selectedUsers=[]) {
-        const groupContainer = document.getElementById(groupId);
-        const userContainer = document.getElementById(userId);
-        groupContainer.innerHTML = '';
+    function renderUserGroupPickers(selG=[], selU=[]) {
+        const gc = document.getElementById('modal_groups'); gc.innerHTML = '';
         allGroups.forEach(g => {
-            const chk = selectedGroups.includes(g.id) ? 'checked' : '';
-            groupContainer.innerHTML += `<div class="form-check"><input class="form-check-input group-chk" type="checkbox" name="group_ids" value="${g.id}" ${chk} data-target-user-container="${userId}"><label class="form-check-label small">${g.name}</label></div>`;
+            const isChecked = selG.includes(g.id) ? 'checked' : '';
+            gc.innerHTML += `<div><input type="checkbox" name="group_ids" value="${g.id}" ${isChecked} onchange="updateUserPicker()"> ${g.name}</div>`;
         });
-        const checkBoxes = groupContainer.querySelectorAll('.group-chk');
-        checkBoxes.forEach(box => { box.addEventListener('change', () => updateUsersList(userContainer, groupContainer, selectedUsers)); });
-        updateUsersList(userContainer, groupContainer, selectedUsers);
+        updateUserPicker(selU);
     }
 
-    function updateUsersList(userContainer, groupContainer, preSelectedUsers=[]) {
-        const checkedGroupIds = Array.from(groupContainer.querySelectorAll('.group-chk:checked')).map(cb => parseInt(cb.value));
-        userContainer.innerHTML = '';
-        if (checkedGroupIds.length === 0) { userContainer.innerHTML = '<small class="text-muted fst-italic">Select a group to see users</small>'; return; }
-        const filteredUsers = allUsers.filter(u => u.group_ids.some(gid => checkedGroupIds.includes(gid)));
-        filteredUsers.forEach(u => {
-            const isChecked = preSelectedUsers.includes(u.id) ? 'checked' : '';
-            userContainer.innerHTML += `<div class="form-check"><input class="form-check-input" type="checkbox" name="user_ids" value="${u.id}" ${isChecked}><label class="form-check-label small">${u.username}</label></div>`;
+    function updateUserPicker(selU=[]) {
+        // Simple version: Show all users if groups checked, or allow free selection
+        // For consistency with Dashboard, let's filter by group
+        const selectedG = Array.from(document.querySelectorAll('input[name="group_ids"]:checked')).map(cb => parseInt(cb.value));
+        const uc = document.getElementById('modal_users'); uc.innerHTML = '';
+
+        if(selectedG.length === 0) { uc.innerHTML = '<small class="text-muted">Select a group...</small>'; return; }
+
+        const filtered = allUsers.filter(u => u.group_ids.some(gid => selectedG.includes(gid)));
+        filtered.forEach(u => {
+            const isChecked = selU && selU.includes(u.id) ? 'checked' : '';
+            uc.innerHTML += `<div><input type="checkbox" name="user_ids" value="${u.id}" ${isChecked}> ${u.display_name}</div>`;
         });
     }
 
-    document.getElementById('edit-task-form').onsubmit = (e) => {
+    document.getElementById('task-form').onsubmit = (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
         const data = Object.fromEntries(fd.entries());
         data.group_ids = fd.getAll('group_ids');
         data.user_ids = fd.getAll('user_ids');
-        fetch('/api/task/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) })
-        .then(r=>r.json()).then(res => {
-            if(res.success) {
-                bootstrap.Modal.getInstance(document.getElementById('edit-task-modal')).hide();
-                drawChart(); // Refresh chart to show changes
-                showToast('Task updated');
-            } else { alert(res.message || 'Error'); }
-        });
-    }
 
-    // --- LINK/FILE HELPERS ---
-    function renderLinks(links=[]) { const div = document.getElementById('link-list'); div.innerHTML = ''; if(links) links.forEach(l => { div.innerHTML += `<div class="list-group-item d-flex justify-content-between p-2"><a href="${l.url}" target="_blank" class="small text-truncate" style="max-width:300px;">${l.url}</a><button class="btn btn-sm text-danger p-0" onclick="delItem('/api/task/link/delete', {link_id:${l.id}})"><i class="bi bi-x"></i></button></div>`; }); }
-    function renderFiles(files=[]) { const div = document.getElementById('file-list'); div.innerHTML = ''; if(files) files.forEach(f => { div.innerHTML += `<div class="list-group-item d-flex justify-content-between p-2"><a href="/task/file/download/${f.id}" class="small">${f.filename}</a><button class="btn btn-sm text-danger p-0" onclick="delItem('/api/task/file/delete', {file_id:${f.id}})"><i class="bi bi-x"></i></button></div>`; }); }
-    function addLink() { const u=document.getElementById('new-link-url').value; if(u) fetch('/api/task/link/add', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({task_id:activeTaskId, url:u})}).then(r=>r.json()).then(res=>{if(res.success){document.getElementById('new-link-url').value=''; fetch(`/api/task/${activeTaskId}`).then(r=>r.json()).then(t=>renderLinks(t.links)); }}); }
-    function uploadFile() { const f=document.getElementById('new-file-input').files[0]; if(f){ const fd=new FormData(); fd.append('file',f); fd.append('task_id',activeTaskId); fetch('/api/task/file/upload', {method:'POST', body:fd}).then(r=>r.json()).then(res=>{if(res.success){document.getElementById('new-file-input').value=''; fetch(`/api/task/${activeTaskId}`).then(r=>r.json()).then(t=>renderFiles(t.files)); }}); }}
-    function delItem(url, body) { if(confirm('Remove item?')) { fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(r=>r.json()).then(res=>{if(res.success){ fetch(`/api/task/${activeTaskId}`).then(r=>r.json()).then(t=>{renderLinks(t.links); renderFiles(t.files);}); }}); }}
+        fetch('/api/task/update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        }).then(() => location.reload()); // Reload to redraw chart
+    };
+
+    function deleteTask() {
+        const tid = document.getElementById('t_id').value;
+        if(confirm("Delete this task?")) {
+            fetch('/api/task/delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({task_id: tid})
+            }).then(() => location.reload());
+        }
+    }
 </script>
 {% endblock %}
